@@ -1,0 +1,163 @@
+http://blog.csdn.net/teddy99999/article/details/50035421
+
+代码目录结构
+top
+         Makefile
+       subdir1
+                   Makefile
+                   inc/src/obj
+
+        subdir2
+                   Makefile
+                   obj
+
+                   bottom1
+                              inc/src
+
+                   bottom2
+                              inc/src
+
+        subdirx
+           ......
+顶级Makefile
+[plain] view plain copy
+exclude_dirs:=include bin  
+  
+#commom must be compiled before any other modules  
+dirs:=common  
+  
+subdir=$(shell find . -maxdepth 1 -type d)  
+dirs+=$(filter-out ./common,$(subdir))  
+dirs:=$(basename $(patsubst ./%,%,$(dirs)))  
+dirs:=$(filter-out $(exclude_dirs),$(dirs))  
+  
+.PHONY: $(dirs) clean  
+  
+$(dirs):  
+        @for dir in $(dirs); do \  
+                $(MAKE) -C $$dir; \  
+        done  
+  
+clean:  
+        @for dir in $(dirs); do \  
+                $(MAKE) -C $$dir clean; \  
+        done  
+
+
+
+=================================
+子目录结构I     
+子目录包含inc/src/obj，将子目录下的源文件的.o文件编译到obj目录
+
+[plain] view plain copy
+CC=g++  
+  
+ROOT=.  
+PROJDIR=$(ROOT)/..  
+OBJDIR=$(ROOT)/obj  
+SRCDIR=$(ROOT)/src  
+  
+TARGET=MFClient  
+SRCS=$(wildcard $(SRCDIR)/*.cpp)  
+srcs=$(notdir $(SRCS))  
+OBJS=$(patsubst %.cpp,$(OBJDIR)/%.o,$(srcs))  
+  
+ifeq ($(DEBUG),1)  
+        CFLAGS=-Wall -DDBUG  
+else  
+        CFLAGS=-Wall -DRELEASE  
+endif  
+  
+ifeq ($(FAKE_SOCKET),1)  
+CFLAGS+=-D_FAKE_SOCKET  
+endif  
+  
+ifeq ($(TEST),1)  
+CFLAGS+=-D_TEST  
+endif  
+  
+INCS=-I$(PROJDIR)/common/inc  
+INCS+=-I$(PROJDIR)/drivers  
+  
+LIBS=-lCommon -lDrivers -lTest  
+LDFLAGS=-L$(PROJDIR)/common/obj  
+LDFLAGS+=-L$(PROJDIR)/test/obj  
+LDFLAGS+=-L$(PROJDIR)/drivers/obj  
+  
+CFLAGS+=$(INCS)  
+  
+.PHONY: all clean  
+  
+all:$(TARGET) $(PROJDIR)/common/obj/libCommon.a $(PROJDIR)/drivers/obj/libDrivers.a $(PROJDIR)/test/obj/libTest.a  
+  
+$(TARGET):$(OBJS)  
+        $(CC) -o $@ $(OBJS) $(LDFLAGS) $(LIBS)  
+  
+$(OBJS):$(SRCS)  
+          
+        $(CC) $(CFLAGS) -c $(patsubst %.o,$(SRCDIR)/%.cpp,$(notdir $@)) -o $@  
+  
+clean:  
+        @echo "make" $(TARGET) "clean"  
+        rm -f $(ROOT)/$(TARGET) $(OBJDIR)/*.o  
+
+
+
+
+=================================
+子目录结构II
+子目录下包含一个obj和多个二级子目录，二级子目录下包含inc/src，所有源文件编译到统一的obj目录
+
+[plain] view plain copy
+CC=g++  
+  
+ROOT=.  
+PROJDIR=$(ROOT)/..  
+OBJDIR=$(ROOT)/obj  
+TARGET=$(OBJDIR)/libDrivers.a  
+  
+exclude_dirs:=obj  
+SUBDIR:=$(filter-out $(exclude_dirs),$(basename $(patsubst ./%,%,$(shell find . -maxdepth 1 -type d))))  
+incs:=$(foreach dir,$(SUBDIR),$(shell ls $(dir)/inc/*.h))  
+SRCS:=$(foreach dir,$(SUBDIR),$(shell ls $(dir)/src/*.cpp))  
+file:=$(notdir $(SRCS))  
+OBJS:=$(patsubst %.cpp,$(OBJDIR)/%.o,$(file))  
+temp:=$(filter %BusUart.cpp,$(SRCS))  
+  
+ifeq ($(DEBUG),1)  
+        CFLAGS=-Wall -DDBUG  
+else  
+        CFLAGS=-Wall -DRELEASE  
+endif  
+  
+INCS=-I$(PROJDIR)/common/inc  
+LDFLAGS=  
+LIBS=  
+  
+ifeq ($(FAKE_SOCKET),1)  
+CFLAGS+=-D_FAKE_SOCKET  
+endif  
+  
+ifeq ($(FAKE_BUS),1)  
+CFLAGS+=-D_FAKE_BUS  
+endif  
+  
+ifeq ($(TEST),1)  
+CFLAGS+=-D_TEST  
+endif  
+  
+CFLAGS+=$(INCS)  
+  
+.PHONY: all clean  
+  
+all:$(TARGET) $(SRCS) $(PROJDIR)/common/obj/libCommon.a  
+  
+$(TARGET):$(OBJS)  
+        $(AR) crv $@ $(OBJS) $(LDFLAGS) $(LIBS)  
+  
+$(OBJS):$(SRCS)  
+        $(CC) $(CFLAGS) -c $(filter %$(patsubst %o,%cpp,$(notdir $@)),$(SRCS)) -o $@  
+          
+clean:  
+        @echo "make" $(TARGET) "clean"  
+        rm -f $(OBJDIR)/*.a $(OBJDIR)/*.o  

@@ -1,0 +1,5 @@
+SRCEXT := .c 
+搜寻当前目录下的所有目录
+SRCDIRS := $(patsubst ./%,%,$(shell find . -type d)
+搜寻所有目录下所有.c的文件
+SRCLIST	:= $(foreach d,$(SRCDIRS),$(wildcard $(addprefix $(d)/*, $(SRCEXT))))

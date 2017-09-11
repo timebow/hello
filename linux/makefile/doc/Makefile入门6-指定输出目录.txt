@@ -1,0 +1,68 @@
+参考: http://blog.csdn.net/gubenpeiyuan/article/details/8230031
+
+网友的精华讨论，记录在这里供大家参看。
+谢谢各位大哥，你们的方法我知道，而且通过修改我的
+http://expert.csdn.net/Expert/topic/1389/1389206.xml?temp=.1599237
+上面的代码也可以完成，不过我是想偷一下懒：每次不创建一个工程时不需要修改太多的信息。不如下面的Makefile文件：
+
+PROJECT=abc
+SYSLIB=-lpthread
+CFLAG=-g
+CXXFLAG=
+CC=gcc
+GCC=gcc
+SOURCES=$(wildcard *.cpp)
+OBJECTS=$(patsubst %.cpp,%.o,$(SOURCES))
+
+$(PROJECT):$(OBJECTS)
+        $(GCC) -o $@ $(OBJECTS) $(CFLAG) $(SYSLIB) 
+.cpp.o:
+        $(GCC) -c $< $(CXXFLAG)
+
+clean:
+        rm -rf *.o $(PROJECT)
+
+这个不需要做任何修改，就可以拷贝到任何C目录下编译（当然要求所有的cpp文件在同一目录下）
+
+后来我做了一点改动，也就是：
+$(GCC) -o $@ $(OBJECTS) $(CFLAG) $(SYSLIB)
+改为：
+$(GCC) -o $@ @(patsubst %.o,./obj/%.o,$^) $(CFLAG) $(SYSLIB)
+
+
+$(GCC) -c $< $(CXXFLAG)
+改为：
+$(GCC) -c $< $(CXXFLAG) -o ./obj/$(patsubst %.cpp,%.o,$<)
+
+它确实可以将编译好的.o连接文件给我放到./obj下。但是不过何时编译它都编译所有文件。
+请各位大哥再给出明确指示。将感激不禁！！！
+
+改进之处： （出处的原文有部分细节被改了，真是坑爹，找了很久才找到。）
+
+OBJDIR=obj
+OBJS=$(patsubst %.c,$(OBJDIR)/%.o,$(wildcard *.c))
+
+all : $(OBJS)
+
+$(OBJDIR)/%.o : %.c
+        cc -o $@ $<
+
+另外一个改进的makefile：
+
+PROJECT=abc
+MYLIB=
+SYSLIB=
+CFLAG=-g
+CC=gcc
+GCC=gcc
+OBJDIR=./obj
+SRCS=$(wildcard *.cpp)
+OBJS=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCS))
+
+$(PROJECT):$(OBJS)
+	$(GCC) -o $@ $^ $(CFLAG) $(SYSLIB) $(MYLIB)
+$(OBJDIR)/%.o:%.cpp
+	$(GCC) -c -o $@ $<
+
+clean:
+	rm -f $(OBJDIR)/*.o $(PROJECT)
