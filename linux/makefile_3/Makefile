@@ -1,3 +1,7 @@
+#
+# 说明:
+# 自动搜索全部子目录, 编译各级目录下的c文件到obj, 然后完成连接.
+#
 
 CC=g++
 
@@ -6,17 +10,13 @@ PROJDIR=$(ROOT)/..
 OBJDIR=$(ROOT)/obj
 TARGET=$(OBJDIR)/test
 
-exclude_dirs:=obj
-SUBDIR:=$(filter-out $(exclude_dirs),$(basename $(patsubst ./%,%,$(shell find . -maxdepth 1 -type d))))
-#incs:=$(foreach dir,$(SUBDIR),$(shell ls $(dir)/inc/*.h))
-#SRCS:=$(foreach dir,$(SUBDIR),$(shell ls $(dir)/*.c))
-
 SRCEXT := .c 
+#不要搜索的目录
+EXCLUDE_DIRS := obj
 #搜寻当前目录下的所有目录
-SRCDIRS := $(patsubst ./%,%,$(shell find . -type d))
+SRCDIRS := $(filter-out $(EXCLUDE_DIRS),$(basename $(patsubst ./%,%,$(shell find . -type d))))
 #搜寻所有目录下所有.c的文件
 SRCS	:= $(foreach d,$(SRCDIRS),$(wildcard $(addprefix $(d)/*, $(SRCEXT))))
-
 file:=$(notdir $(SRCS))
 OBJS:=$(patsubst %.c,$(OBJDIR)/%.o,$(file))
 temp:=$(filter %BusUart.c,$(SRCS))
