@@ -157,6 +157,9 @@ static int parse_options(int argc, const char *argv[])
     return 0;
 }
 
+/************************************************************************/
+/*                                                                      */
+/************************************************************************/
 unsigned long get_file_length(FILE* file_ptr)  
 {  
     unsigned long PosCur   = 0;  
@@ -219,6 +222,41 @@ void showBinary(unsigned int n, char maxbits, char showMinBit, char showMaxBit, 
     }
 }
 
+/*****************************************************************************************
+* @brief  : get value from offset a to offset b.
+* @param  : AField: AField data
+            a     : start bit offset, A0-A47, bit offset as ETSI used.
+            b     : end bit offset, A0-A47, bit offset as ETSI used
+* @warning: long may be 4/8 bytes
+* @return : -1=fail, others=value of a->b.
+******************************************************************************************/
+long AFGetBitsValue(unsigned char *AField, unsigned char a, unsigned char b)
+{
+    char len = b-a+1;
+    char i, offsetByte = 0, offsetBit = 0;
+    long curBit = 0;
+    long val = 0;
+    
+    if( !AField || (a > b) || (a > 47) || (b > 47) || (len > (sizeof(unsigned long)<<3)) )
+    {
+        printf("GetBits Error!");
+        return -1;
+    }
+    
+    for(i=a; i<=b; i++)
+    {
+        offsetByte = i/8;
+        offsetBit = 7-(i%8);
+        curBit = (AField[offsetByte] >> offsetBit) & 1;
+        val |= curBit<<(b-i);
+    }
+    
+    return val;
+}
+
+/************************************************************************/
+/*                                                                      */
+/************************************************************************/
 void AFHead(unsigned char *AField)
 {
     showBinary( AField[0]&0xE0, 8, 5, 7, sAfHeadTa[AField[0]>>5] );
@@ -226,6 +264,7 @@ void AFHead(unsigned char *AField)
     showBinary( AField[0]&0x0E, 8, 1, 3, "BA" );
     showBinary( AField[0]&0x01, 8, 0, 0, "Q2" );
 }
+
 void QMessage(unsigned char *AField)
 {
     showBinary( AField[1]&0xF0, 8, 4, 7, sAfTailQHead[AField[1]>>4]);
@@ -267,7 +306,8 @@ int parseAField(unsigned char *AField)
     
     /* Show Head */
     AFHead( AField );
-    switch( (AField[0]&0xE0) >> 5)
+    /* A0-A2 */
+    switch( AFGetBitsValue(AField, 0, 2) )
     {
     case 0:
         printf("un-parse Ct!\n");
@@ -302,6 +342,37 @@ int parseAField(unsigned char *AField)
     return 0;
 }
 
+void stdinParse(void)
+{
+    unsigned char AField[5];
+    char c;
+    
+    /* use Ctrl+C to break */
+    while(1)
+    {
+        printf("Please input Afiled data (6 Bytes):\n");
+        if(6 != scanf("%02x%*c%02x%*c%02x%*c%02x%*c%02x%*c%02x", &AField[0], &AField[1], &AField[2], &AField[3], &AField[4], &AField[5]))
+        {
+            printf("INPUT ERROR!\n");
+            while((c=getchar())!='\n'&&c!=EOF);
+            continue;
+        }
+        if(feof(stdin)||ferror(stdin))
+        {
+            //如果用户输入文件结束标志（或文件已被读完），或者发生读写错误，则退出循环
+            //dosomething
+            break;
+        }
+        //没有发生错误，清空输入流。通过while循环把输入流中的余留数据“吃”掉
+        while((c=getchar())!='\n'&&c!=EOF);
+        //可直接将这句代码当成fflush(stdin)的替代，直接运行可清除输入缓存流
+        //使用scanf("%*[^\n]");也可以清空输入流，不过会残留\n字符。
+        
+        /*解析AField*/
+        parseAField(AField);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     FILE *inFile = NULL;
@@ -309,6 +380,15 @@ int main(int argc, char *argv[])
 
     /* parse options */
     parse_options(argc, (const char **)argv);
+    
+    /* input from stdin */
+    if(g_arg.ifile[0] == 0)
+    {
+        stdinParse();
+        return 0;
+    }
+    
+    /* open file */
     if((inFile=fopen(g_arg.ifile,"rb"))==NULL)
     {
         printf("Input file error: %s\n",g_arg.ifile);
@@ -321,10 +401,10 @@ int main(int argc, char *argv[])
     while(!feof(inFile))
     {
         /*读取AField*/
-        fscanf(inFile,"%02x %02x %02x %02x %02x %02x", &AField[0], &AField[1], &AField[2], &AField[3], &AField[4], &AField[5]);
+        fscanf(inFile,"%02x%*c%02x%*c%02x%*c%02x%*c%02x%*c%02x", &AField[0], &AField[1], &AField[2], &AField[3], &AField[4], &AField[5]);
         /*解析AField*/
         parseAField(AField);
     }
-    fclose(inFile);
+    fclose(inFile);    
     return 0;
 }
