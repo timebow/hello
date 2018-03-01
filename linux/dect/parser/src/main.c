@@ -89,6 +89,25 @@ const char *sAfTailMtHead[]={
     "Reserved"
 };
 
+const char *sAfTailMtH0Cmd[]={ //Mt.Head=0, basic connection control
+    "access_request",
+    "bearer_handover_request",
+    "connection_handover_request",
+    "unconfirmed_access_request",
+    "bearer_confirm",
+    "wait",
+    "attributes_T_request",
+    "attributes_T_confirm",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "release"
+};
+
 const char *sAfTailMtH1Cmd[]={ //Mt.Head=1, advanced connection control
     "ACCESS_REQUEST",
     "bearer_handover_request",
@@ -107,6 +126,18 @@ const char *sAfTailMtH1Cmd[]={ //Mt.Head=1, advanced connection control
     "Reserved",
     "release"
 };
+
+const char *sAfTailPtHead[]={ //Pt.Head
+    "zero length page ",
+    "short page ",
+    "full page",
+    "MAC resume and control page",
+    "not the last 36 bits of a long page",
+    "the first 36 bits of a long page",
+    "the last 36 bits of a long page",
+    "all of a long page (first and last)"
+};
+
 
 /************************************************************************/
 /*                                                                      */
@@ -267,7 +298,7 @@ void showBinary(unsigned int n, char maxbits, char showMinBit, char showMaxBit, 
     }
 }
 
-void showBinaryPos(unsigned int data, int alignedBits, char fromBit, char toBit, const char *fmt, ...)
+void showBinaryPos(unsigned long data, int alignedBits, char fromBit, char toBit, const char *fmt, ...)
 {
     char firstDots, lastDots, i;
     
@@ -303,7 +334,7 @@ void showBinaryPos(unsigned int data, int alignedBits, char fromBit, char toBit,
     /* show comment */
     if(fmt)
     {
-        static char tmpbuf[256];
+        static char tmpbuf[512];
         va_list args;
         int     len = 0;
         
@@ -403,7 +434,7 @@ void AFHead(unsigned char *AField)
     showBinary( AField[0]&0x01, 8, 0, 0, "Q2" );
 }
 
-void QMessage(unsigned char *AField)
+void QtMessage(unsigned char *AField)
 {
     showBinary( AField[1]&0xF0, 8, 4, 7, sAfTailQHead[AField[1]>>4]);
     switch( AField[1]&0xF0 )
@@ -444,22 +475,75 @@ void MtMessage(unsigned char *AField)
     switch( AFData(8, 11) )
     {
     case 0x00:
+        AFShow(12, 15, sAfTailMtH0Cmd[AFData(12, 15)]);
+        AFShow(16, 27, "FMID: %03X", AFData(16, 27));
+        AFShow(28, 47, "PMID: %05lX", AFData(28, 47));
         break;
     case 0x01:
         AFShow(12, 15, sAfTailMtH1Cmd[AFData(12, 15)]);
         AFShow(16, 27, "FMID: %03X", AFData(16, 27));
         AFShow(28, 47, "PMID: %05lX", AFData(28, 47));
         break;
+    case 0x0A:
+    case 0x0B:
+    case 0x0C:
+    case 0x0D:
+    case 0x0E:
+    case 0x0F:
+        //reserved!
+        break;
     default:
         printf("un-parse Mt Message!\n");
         break;
     }
-    
+}
+
+void PtMessage(unsigned char *AField)
+{
+    //a8-a11: Pt Header
+    AFShow(8, 8, AFData(8, 8)?"another page message shall start in the next frame in this multiframe that is permitted to contain a PT type tail."
+                             :"the next occurrence of a normal page shall be in a frame ");
+    AFShow(9, 11, "Bs Channel SDU length: %s", sAfTailPtHead[AFData(9, 11)]);
+    switch( AFData(9, 11) )
+    {
+    case 0: //zero page
+        AFShow(12, 31, "20 least significa bits of RFPI: 0x%05lX", AFData(12, 31));
+        AFShow(32, 35, "info type: 0x%01X", AFData(32, 35));
+        AFShow(36, 47, "MAC Layer information: 0x%03X", AFData(36, 47));
+        break;
+    case 1: //short page
+        AFShow(12, 31, "20 bits of Bs channel data: 0x%05lX", AFData(12, 31));
+        AFShow(32, 35, "info type: %X", AFData(32, 35));
+        AFShow(36, 47, "MAC Layer information: 0x%03X", AFData(36, 47));
+        break;
+    case 2: //full page
+        AFShow(12, 47, "36 bits of Bs channel data: 0x%09lX", AFData(12, 47));
+        break;
+    case 3: //MAC resume and control page
+        AFShow(12, 31, "PMID: 0x%05lX", AFData(12, 31));
+        AFShow(32, 35, "ECN/Info 3: 0x%01X", AFData(32, 35));
+        AFShow(36, 37, "Command: 0x%X", AFData(36, 37));
+        AFShow(38, 41, "Info 1: 0x%X", AFData(38, 41));
+        AFShow(42, 47, "Info 2: 0x%X", AFData(42, 47));
+        break;
+    case 4: //not the last 36 bits of a long page
+	    AFShow(12, 47, "(Page WITHOUT data)");
+        break;
+    case 5: //the first 36 bits of a long page 
+    case 6: //the last 36 bits of a long page
+    case 7: //all of a long page (first and last) 
+        AFShow(12, 47, "36 bits of Bs channel data: 0x%09lX", AFData(12, 47));
+        break;
+    default:
+        printf("un-parse Pt Message!\n");
+        break;
+    }
 }
 
 int parseAField(unsigned char *AField)
 {
-    printf("AFiled: %02X %02X %02X %02X %02X %02X\n", 
+    printf("---------------------------------------\n");
+    printf("# AFiled Data: %02X %02X %02X %02X %02X %02X\n\n", 
         AField[0], AField[1], AField[2], AField[3], AField[4], AField[5]);
     
     /* Store afield to use */
@@ -483,7 +567,7 @@ int parseAField(unsigned char *AField)
         printf("un-parse Nt!\n");
         break;
     case 4:
-        QMessage( AField );
+        QtMessage( AField );
         break;
     case 5:
         printf("reserved!\n");
@@ -494,14 +578,26 @@ int parseAField(unsigned char *AField)
         break;
     case 7:
         //printf("un-parse Pt/Mt!\n");
-        printf("NOTE: Pt/Mt!\n");
-        MtMessage( AField );
+        if(AFData(28, 47) < 8)
+        {
+            printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
+            MtMessage( AField );
+            printf("\n>>>>> If From FP: Pt (Auto Check: %s possiblity)\n", AFData(28, 47) >= 8 ? "High":"Low");
+            PtMessage( AField );
+        }
+        else
+        {
+            printf("\n>>>>> If From FP: Pt (Auto Check: %s possiblity)\n", AFData(28, 47) >= 8 ? "High":"Low");
+            PtMessage( AField );
+            printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
+            MtMessage( AField );
+        }
         break;
     default:
         printf("un-known AField!\n");
         break;
     }
-    printf("\n");
+    printf("\n\n");
     
     return 0;
 }
@@ -542,6 +638,7 @@ int main(int argc, char *argv[])
 {
     FILE *inFile = NULL;
     unsigned char AField[5];
+    char tmpstr[1024];
 
     /* parse options */
     parse_options(argc, (const char **)argv);
@@ -567,6 +664,8 @@ int main(int argc, char *argv[])
     {
         /*读取AField*/
         fscanf(inFile,"%02x%*c%02x%*c%02x%*c%02x%*c%02x%*c%02x", &AField[0], &AField[1], &AField[2], &AField[3], &AField[4], &AField[5]);
+        /*读到本行结束*/
+        fgets(tmpstr, 1024 , inFile);
         /*解析AField*/
         parseAField(AField);
     }
