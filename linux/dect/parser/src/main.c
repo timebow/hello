@@ -32,6 +32,13 @@ typedef struct
 
 ST_ARG g_arg = {0,};
 
+typedef struct
+{
+    unsigned char afield[6];
+}ST_DECT;
+
+ST_DECT g_dect = {0};
+
 // AField str index
 const char *sAfHeadTa[]={
     "Ct Data packet number 0",
@@ -59,9 +66,47 @@ const char *sAfTailQHead[]={
     "extended fixed part capabilities part 2",
     "Reserved",
     "Reserved",
+    "Reserved",
     "Reserved"
 };
 
+const char *sAfTailMtHead[]={
+    "basic connection control",
+    "advanced connection control",
+    "MAC layer test messages",
+    "quality control",
+    "broadcast and connectionless services",
+    "encryption control",
+    "Tail for use with the first transmission of a B-field \"bearer request\" message",
+    "escape",
+    "TARI message",
+    "REP connection control",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved"
+};
+
+const char *sAfTailMtH1Cmd[]={ //Mt.Head=1, advanced connection control
+    "ACCESS_REQUEST",
+    "bearer_handover_request",
+    "connection_handover_request",
+    "unconfirmed_access_request",
+    "bearer_confirm",
+    "wait (contains FMID)",
+    "attributes_T_request",
+    "attributes_T_confirm",
+    "bandwidth_T_request",
+    "bandwidth_T_confirm",
+    "channel_list",
+    "unconfirmed_dummy",
+    "unconfirmed_handover",
+    "Reserved",
+    "Reserved",
+    "release"
+};
 
 /************************************************************************/
 /*                                                                      */
@@ -222,6 +267,53 @@ void showBinary(unsigned int n, char maxbits, char showMinBit, char showMaxBit, 
     }
 }
 
+void showBinaryPos(unsigned int data, int alignedBits, char fromBit, char toBit, const char *fmt, ...)
+{
+    char firstDots, lastDots, i;
+    
+    if(fromBit > toBit || alignedBits <= 0)
+    {
+        printf("%s error!\n",__FUNCTION__);
+        return;
+    }
+    
+    /* show first dots */
+    firstDots = fromBit % alignedBits;
+    for(i=0; i<firstDots; i++)
+    {
+        printf(".");
+    }
+    
+    /* show data */
+    for(i=fromBit; i<=toBit; i++)
+    {
+        printf("%d",data&(1<<(toBit-i))?1:0);
+    }
+    
+    /* show last dots */
+    if((toBit-fromBit < alignedBits) && ((toBit % alignedBits)+1 < alignedBits))
+    {
+        lastDots = alignedBits - (toBit % alignedBits) - 1;
+        for(i=0; i<lastDots; i++)
+        {
+            printf(".");
+        }
+    }
+    
+    /* show comment */
+    if(fmt)
+    {
+        static char tmpbuf[256];
+        va_list args;
+        int     len = 0;
+        
+        va_start(args, fmt);
+        len += vsnprintf(tmpbuf+len,sizeof(tmpbuf)-len-1,fmt, args);
+        va_end(args);
+        printf("  %s\n", tmpbuf);
+    }
+}
+
 /*****************************************************************************************
 * @brief  : get value from offset a to offset b.
 * @param  : AField: AField data
@@ -252,6 +344,52 @@ long AFGetBitsValue(unsigned char *AField, unsigned char a, unsigned char b)
     }
     
     return val;
+}
+
+long AFData(unsigned char a, unsigned char b)
+{
+    char len = b-a+1;
+    char i, offsetByte = 0, offsetBit = 0;
+    long curBit = 0;
+    long val = 0;
+    unsigned char *AField = g_dect.afield;
+    
+    if( (a > b) || (a > 47) || (b > 47) || (len > (sizeof(unsigned long)<<3)) )
+    {
+        printf("GetBits Error!");
+        return -1;
+    }
+    
+    for(i=a; i<=b; i++)
+    {
+        offsetByte = i>>3; //i/8;
+        offsetBit = 7-(i&7); //7-(i%8);
+        curBit = (AField[offsetByte] >> offsetBit) & 1;
+        val |= curBit<<(b-i);
+    }
+    
+    return val;
+}
+
+/*****************************************************************************************
+* @brief  : show value & comment from offset a to offset b.
+* @param  : a     : start bit offset, A0-A47, bit offset as ETSI used.
+            b     : end bit offset, A0-A47, bit offset as ETSI used
+            fmt   : string to show as comment
+* @warning: 
+* @return : 
+******************************************************************************************/
+void AFShow(unsigned char a, unsigned char b, const char *fmt, ...)
+{
+    static char tmpbuf[512];
+    va_list args;
+    int     len = 0;
+    unsigned char *AField = g_dect.afield;
+    
+    va_start(args, fmt);
+    len += vsnprintf(tmpbuf+len,sizeof(tmpbuf)-len-1,fmt, args);
+    va_end(args);
+    showBinaryPos(AFGetBitsValue(AField, a, b), 8, a, b, tmpbuf);
 }
 
 /************************************************************************/
@@ -293,7 +431,27 @@ void QMessage(unsigned char *AField)
         showBinary( AField[5]&0x3F, 8, 0, 5, "PSCN: %d", AField[5]&0x3F);//bit 42-47
         break;
     default:
-        printf("un-parse Q Message!\n");
+        printf("un-parse Qt Message!\n");
+        break;
+    }
+    
+}
+
+void MtMessage(unsigned char *AField)
+{
+    //a8-a11: Mt Header
+    AFShow(8, 11, sAfTailMtHead[AFData(8, 11)]);
+    switch( AFData(8, 11) )
+    {
+    case 0x00:
+        break;
+    case 0x01:
+        AFShow(12, 15, sAfTailMtH1Cmd[AFData(12, 15)]);
+        AFShow(16, 27, "FMID: %03X", AFData(16, 27));
+        AFShow(28, 47, "PMID: %05lX", AFData(28, 47));
+        break;
+    default:
+        printf("un-parse Mt Message!\n");
         break;
     }
     
@@ -304,10 +462,13 @@ int parseAField(unsigned char *AField)
     printf("AFiled: %02X %02X %02X %02X %02X %02X\n", 
         AField[0], AField[1], AField[2], AField[3], AField[4], AField[5]);
     
+    /* Store afield to use */
+    memcpy(g_dect.afield, AField, 6);
+    
     /* Show Head */
     AFHead( AField );
     /* A0-A2 */
-    switch( AFGetBitsValue(AField, 0, 2) )
+    switch( AFData(0, 2) )
     {
     case 0:
         printf("un-parse Ct!\n");
@@ -328,10 +489,13 @@ int parseAField(unsigned char *AField)
         printf("reserved!\n");
         break;
     case 6:
-        printf("un-parse Mt!\n");
+        //printf("un-parse Mt!\n");
+        MtMessage( AField );
         break;
     case 7:
-        printf("un-parse Pt/Mt!\n");
+        //printf("un-parse Pt/Mt!\n");
+        printf("NOTE: Pt/Mt!\n");
+        MtMessage( AField );
         break;
     default:
         printf("un-known AField!\n");
@@ -351,6 +515,7 @@ void stdinParse(void)
     while(1)
     {
         printf("Please input Afiled data (6 Bytes):\n");
+        printf("> ");
         if(6 != scanf("%02x%*c%02x%*c%02x%*c%02x%*c%02x%*c%02x", &AField[0], &AField[1], &AField[2], &AField[3], &AField[4], &AField[5]))
         {
             printf("INPUT ERROR!\n");
