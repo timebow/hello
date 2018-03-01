@@ -43,7 +43,7 @@ ST_DECT g_dect = {0};
 const char *sAfHeadTa[]={
     "Ct Data packet number 0",
     "Ct Data packet number 1",
-    "Nt",
+    "Nt postion",
     "Nt",
     "Qt",
     "reserved",
@@ -554,30 +554,29 @@ int parseAField(unsigned char *AField)
     /* A0-A2 */
     switch( AFData(0, 2) )
     {
-    case 0:
-        printf("un-parse Ct!\n");
+    case 0: //Ct0
+    case 1: //Ct1
+        AFShow(8, 47, "CT#%d: %010lX", AFData(0, 2), AFData(8, 47)); //Ct Data is for DLC, mulit-segments combined into complete data(MID_MAC_CO_DATA_IND)
         break;
-    case 1:
-        printf("un-parse Ct!\n");
+    case 2: //Nt position
+        if(AFData(4, 6) == 7)
+            printf("Nt is on dummy bearer!(BA=111)\n");
+        else
+            printf("Nt is on connectionless bearer!(BA!=111)\n");
         break;
-    case 2:
-        printf("un-parse Nt!\n");
+    case 3: //Nt
+        AFShow(8, 47, "RFPI: %010lX", AFData(8, 47));
         break;
-    case 3:
-        printf("un-parse Nt!\n");
-        break;
-    case 4:
+    case 4: //Qt
         QtMessage( AField );
         break;
-    case 5:
+    case 5: //reserved
         printf("reserved!\n");
         break;
-    case 6:
-        //printf("un-parse Mt!\n");
+    case 6: //Mt
         MtMessage( AField );
         break;
-    case 7:
-        //printf("un-parse Pt/Mt!\n");
+    case 7: //First-Mt(PP) or Pt
         if(AFData(28, 47) < 8)
         {
             printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
