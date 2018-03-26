@@ -127,6 +127,44 @@ const char *sAfTailMtH1Cmd[]={ //Mt.Head=1, advanced connection control
     "release"
 };
 
+const char *sAfTailMtH2Cmd[]={ //Mt.Head=2, MAC layer test messages 
+    "FORCE_TRANSMIT",
+    "LOOPBACK",
+    "DEFEAT_ANTENNA_DIVERSITY",
+    "reserved",
+    "ESCAPE",
+    "NETWORK_TEST",
+    "CHANGE_MODULATION_SCHEME",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "CLEAR_TEST_MODES"
+};
+
+const char *sAfTailMtH3Cmd[]={ //Mt.Head=3, Quality control
+    "antenna switch for the bearer(s) identified by LBN: request: PT --> FT, reject: FT --> PT",
+    "antenna switch for all bearers of this connection to the RFP identified by its RPN: request: PT --> FT, reject: FT --> PT",
+    "xxxx", //parase by sub field
+    "connection handover: request: FT --> PT, reject: PT --> FT",
+    "frequency control for the bearer identified by LBN: request: FT --> PT, reject: PT --> FT",
+    "frequency control for all bearers of this connection to the RFP identified by its RPN: request: FT --> PT, reject: PT --> FT",
+    "Advance timing for all the bearers of this connection to the RFP identified by its RPN: request: FT --> PT, reject: PT --> FT",
+    "PT --> FT: PT informs that it is transmitting prolonged preamble in all the frames",
+    "xxxx",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved",
+    "reserved"
+};
+
 const char *sAfTailPtHead[]={ //Pt.Head
     "zero length page ",
     "short page ",
@@ -474,15 +512,94 @@ void MtMessage(unsigned char *AField)
     AFShow(8, 11, sAfTailMtHead[AFData(8, 11)]);
     switch( AFData(8, 11) )
     {
-    case 0x00:
+    case 0x00://Basic connection control
         AFShow(12, 15, sAfTailMtH0Cmd[AFData(12, 15)]);
         AFShow(16, 27, "FMID: %03X", AFData(16, 27));
         AFShow(28, 47, "PMID: %05lX", AFData(28, 47));
         break;
-    case 0x01:
+    case 0x01: //Advanced connection control
         AFShow(12, 15, sAfTailMtH1Cmd[AFData(12, 15)]);
         AFShow(16, 27, "FMID: %03X", AFData(16, 27));
         AFShow(28, 47, "PMID: %05lX", AFData(28, 47));
+        break;
+    case 0x02: //MAC layer test messages
+        AFShow(12, 15, sAfTailMtH2Cmd[AFData(12, 15)]);
+        AFShow(16, 47, "data: %08X", AFData(16, 47));
+        break;
+    case 0x03: //Quality control
+        switch(AFData(12, 15))
+        {
+        case 0x00:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 31, "LBN:%01X, LBN:%01X, LBN:%01X, LBN:%01X", AFData(16, 19), AFData(20, 23), AFData(24, 27), AFData(28, 31));
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x01:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 31, "RPN:%02X, fix:%02X", AFData(16, 23), AFData(24, 31));
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x02:
+            switch(AFData(16, 19))
+            {
+            case 0x0:
+                AFShow(12, 15, "bearer handover/bearer replacement of the bearer identified by LBN: request: FT --> PT, reject: PT --> FT");
+                AFShow(16, 31, "fix:%01X, LBN:%01X, fix/RPN:%02X", AFData(16, 19), AFData(20, 23), AFData(24, 31));
+                break;
+            case 0xF:
+                AFShow(12, 15, "bearer handover/bearer replacement of the bearer identified by LBN: request: PT --> FT, reject: FT --> PT");
+                AFShow(16, 31, "fix:%01X, LBN:%01X, fix/RPN:%02X", AFData(16, 19), AFData(20, 23), AFData(24, 31));
+                break;
+            default:
+                printf("Mt.Quality.0x02.0x%X error!\n", AFData(16, 19));
+                break;
+            }
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x03:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 47, "fix:%08X", AFData(16, 47));
+            break;
+        case 0x04:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 31, "fix:%01X, LBN:%01X, freq err:%02X", AFData(16, 19), AFData(20, 23), AFData(24, 31));
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x05:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 31, "RPN:%02X, freq err:%02X", AFData(16, 23), AFData(24, 31));
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x06:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 31, "RPN:%02X, adv timing inc dec:%02X", AFData(16, 23), AFData(24, 31));
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x07:
+            AFShow(12, 15, sAfTailMtH3Cmd[AFData(12, 15)]);
+            AFShow(16, 31, "RPN:%02X, fix:%02X", AFData(16, 23), AFData(24, 31));
+            AFShow(32, 47, "fix:%04X", AFData(32, 47));
+            break;
+        case 0x08:
+            switch(AFData(16, 19))
+            {
+            case 0x0:
+                AFShow(12, 15, "frequency replacement to carrier CN on slot pair SN: request PT -> FT, confirm FT -> PT");
+                AFShow(16, 31, "fix:%01X, SN:%01X, fix:%01X, CN:%01X", AFData(16, 19), AFData(20, 23), AFData(24, 27), AFData(28, 31));
+                break;
+            case 0xF:
+                AFShow(12, 15, "frequency replacement to carrier CN on slot pair SN: grant PT -> FT");
+                AFShow(16, 31, "fix:%01X, SN:%01X, fix:%01X, CN:%01X", AFData(16, 19), AFData(20, 23), AFData(24, 27), AFData(28, 31));
+                break;
+            default:
+                printf("Mt.Quality.0x08.0x%X error!\n", AFData(16, 19));
+                break;
+            }
+            break;
+        default:
+            printf("Mt.Quality.reserved(0x%X) error!\n", AFData(12, 15));
+            break;
+        }
         break;
     case 0x0A:
     case 0x0B:
@@ -493,7 +610,7 @@ void MtMessage(unsigned char *AField)
         //reserved!
         break;
     default:
-        printf("un-parse Mt Message!\n");
+        printf("un-parse Mt Message(0x%X)!\n", AFData(8, 11));
         break;
     }
 }

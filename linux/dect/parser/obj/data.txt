@@ -1,4 +1,5 @@
 8e:00:03:ff:1b:1b //Q0 - Q(H)=0,static system info
+E0 1C 00 02 1A 20 //Pt - P(H)=1,short page
 E1 00 62 10 00 02 //Mt - M(H)=0,basic connection control - access_request (PT->RT30)
 eb 11 15 a0 00 01 //Mt - M(H)=1,advanced connection control - bearer_handover_request
-E0 1C 00 02 1A 20 //Pt - P(H)=1,short page
+C1 37 5A 0F 0F 0F //Mt - M(H)=3,Quality control
