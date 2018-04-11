@@ -23,17 +23,28 @@
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/
+#define ST_DECT_DEV_NONE 0
+#define ST_DECT_DEV_FP   1
+#define ST_DECT_DEV_PP   2
+#define ST_DECT_DIR_NONE 0
+#define ST_DECT_DIR_TX   1
+#define ST_DECT_DIR_RX   2
+
 typedef struct
 {
     char ifile[128];
     char ofile[128];
     int  len; 
+    int  dev; //device
+    int  dir; //direction
 }ST_ARG;
 
 ST_ARG g_arg = {0,};
 
 typedef struct
 {
+    unsigned char dev;
+    unsigned char dir;
     unsigned char afield[6];
 }ST_DECT;
 
@@ -67,6 +78,13 @@ const char *sAfTailQHead[]={
     "Reserved",
     "Reserved",
     "Reserved",
+    "Reserved"
+};
+
+const char *sAfTailQHxSP[]={ //Start Position
+    "S-field starts at bit f0",
+    "Reserved",
+    "S-field starts at bit f240",
     "Reserved"
 };
 
@@ -176,6 +194,24 @@ const char *sAfTailPtHead[]={ //Pt.Head
     "all of a long page (first and last)"
 };
 
+const char *sAfTailPtHxMacInfo[]={ //Pt.Hx.MacInfo(b32-35)
+    "fill bits / blind long slot (j=640/672) information",
+    "blind full slot information for circuit mode service ",
+    "other bearer",
+    "recommended other bearer",
+    "good RFP bearer",
+    "dummy or C/L bearer position",
+    "extended modulation types",
+    "escape",
+    "dummy or C/L bearer marker",
+    "bearer handover/replacement information",
+    "RFP status and modulation types",
+    "active carriers",
+    "C/L bearer position",
+    "RFP power level",
+    "blind double slot/RFP-FP interface resource information",
+    "blind full slot information for packet mode service"
+};
 
 /************************************************************************/
 /*                                                                      */
@@ -189,6 +225,8 @@ static void display_help (void)
         "-i      --input           input file path\n"
         "-o      --output          output file path\n"
         "-l      --length          max length to output\n"
+        "-v      --device          which device own this message(fp/pp)\n"
+        "-r      --direction       which direction this message produce(tx/rx)\n"
         "\n"
         );
     exit(0);
@@ -200,7 +238,7 @@ static int parse_options(int argc, const char *argv[])
     for (;;) 
     {
         int option_index = 0;
-        static const char  *short_options = "cade:i:o:l:";
+        static const char  *short_options = "cade:i:o:l:v:r:";
         static const struct option long_options[] = 
         {
             /*server common define*/
@@ -215,6 +253,8 @@ static int parse_options(int argc, const char *argv[])
             {"input",           no_argument,        0, 'i'},
             {"output",          no_argument,        0, 'o'},
             {"length",          no_argument,        0, 'l'},
+            {"device",          no_argument,        0, 'v'},
+            {"direction",       no_argument,        0, 'r'},
             {0, 0, 0, 0},
         };
 
@@ -255,6 +295,40 @@ static int parse_options(int argc, const char *argv[])
         case 'l':
             {                
                 if(sscanf(optarg,"0x%x",&g_arg.len)!=1)
+                {
+                    display_help();
+                }
+            }
+            break;
+            
+        case 'v':
+            {
+                if(0 == strncmp(optarg, "fp", 2))
+                {
+                    g_arg.dev = ST_DECT_DEV_FP;
+                }
+                else if(0 == strncmp(optarg, "pp", 2))
+                {
+                    g_arg.dev = ST_DECT_DEV_PP;
+                }
+                else
+                {
+                    display_help();
+                }
+            }
+            break;
+            
+        case 'r':
+            {
+                if(0 == strncmp(optarg, "tx", 2))
+                {
+                    g_arg.dir = ST_DECT_DIR_TX;
+                }
+                else if(0 == strncmp(optarg, "rx", 2))
+                {
+                    g_arg.dir = ST_DECT_DIR_RX;
+                }
+                else
                 {
                     display_help();
                 }
@@ -623,6 +697,7 @@ void PtMessage(unsigned char *AField)
     AFShow(9, 11, "Bs Channel SDU length: %s", sAfTailPtHead[AFData(9, 11)]);
     switch( AFData(9, 11) )
     {
+    /*
     case 0: //zero page
         AFShow(12, 31, "20 least significa bits of RFPI: 0x%05lX", AFData(12, 31));
         AFShow(32, 35, "info type: 0x%01X", AFData(32, 35));
@@ -632,6 +707,51 @@ void PtMessage(unsigned char *AField)
         AFShow(12, 31, "20 bits of Bs channel data: 0x%05lX", AFData(12, 31));
         AFShow(32, 35, "info type: %X", AFData(32, 35));
         AFShow(36, 47, "MAC Layer information: 0x%03X", AFData(36, 47));
+        */
+    case 0: //zero page
+    case 1: //short page
+        AFShow(12, 31, "20 least significa bits of RFPI: 0x%05lX", AFData(12, 31));
+        AFShow(32, 35, "info type: %X (%s)", AFData(32, 35), sAfTailPtHxMacInfo[AFData(32, 35)]);
+        switch(AFData(32, 35))
+        {
+        case 0x0: //longslot blindslots
+            if(AFData(47, 47))
+            {
+                AFShow(36, 39, "fix fill bits: %X", AFData(36, 47));
+            }
+            else
+            {
+                int i;
+                for(i=36;i<=47;i++) //long slot, 1/3/5.. always blind, so bit 47 spare = 0, also can be amused blind.
+                {
+                    AFShow(i, i, "long slot pair {%d,%d} is %s", i-36, i-24, AFData(i, i)?"NOT blind":"blind");
+                }
+                //AFShow(47, 47, "spare: %x", AFData(47, 47));
+            }
+            break;
+        case 0x1: //blind full slot information for circuit mode service 
+        case 0xF: //blind full slot information for packet mode service
+            {
+                int i;
+                for(i=36;i<=47;i++)
+                {
+                    AFShow(i, i, "full slot pair {%d,%d} is %s", i-36, i-24, AFData(i, i)?"NOT blind":"blind");
+                }
+            }
+            break;
+        case 0x2: //other bearer 
+        case 0x3: //recommended other bearer
+        case 0x4: //good RFP bearer
+        case 0x5: //dummy or connectionless bearer position
+        case 0xC: //C/L bearer position
+            AFShow(36, 39, "SN(Slot Number): slot pair {%d,%d}", AFData(36, 39), AFData(36, 39)+12);
+            AFShow(40, 41, "SP(Start Position): %s", sAfTailQHxSP[AFData(40, 41)]);
+            AFShow(42, 47, "CN(Carrier Number): RF Carrier %d", AFData(42, 47));
+            break;
+        default:
+            printf("unknown page info.\n");
+            break;
+        }
         break;
     case 2: //full page
         AFShow(12, 47, "36 bits of Bs channel data: 0x%09lX", AFData(12, 47));
@@ -694,19 +814,30 @@ int parseAField(unsigned char *AField)
         MtMessage( AField );
         break;
     case 7: //First-Mt(PP) or Pt
-        if(AFData(28, 47) < 8)
+        if ( (g_dect.dev == ST_DECT_DEV_FP && g_dect.dir == ST_DECT_DIR_TX) || (g_dect.dev == ST_DECT_DEV_PP && g_dect.dir == ST_DECT_DIR_RX) )//Pt
         {
-            printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
-            MtMessage( AField );
-            printf("\n>>>>> If From FP: Pt (Auto Check: %s possiblity)\n", AFData(28, 47) >= 8 ? "High":"Low");
             PtMessage( AField );
         }
-        else
+        else if ( (g_dect.dev == ST_DECT_DEV_FP && g_dect.dir == ST_DECT_DIR_RX) || (g_dect.dev == ST_DECT_DEV_PP && g_dect.dir == ST_DECT_DIR_TX) )//Mt
         {
-            printf("\n>>>>> If From FP: Pt (Auto Check: %s possiblity)\n", AFData(28, 47) >= 8 ? "High":"Low");
-            PtMessage( AField );
-            printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
             MtMessage( AField );
+        }
+        else //unknown device & direction, then print all case.
+        {
+            if(AFData(28, 47) < 8)
+            {
+                printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
+                MtMessage( AField );
+                printf("\n>>>>> If From FP: Pt (Auto Check: %s possiblity)\n", AFData(28, 47) >= 8 ? "High":"Low");
+                PtMessage( AField );
+            }
+            else
+            {
+                printf("\n>>>>> If From FP: Pt (Auto Check: %s possiblity)\n", AFData(28, 47) >= 8 ? "High":"Low");
+                PtMessage( AField );
+                printf("\n>>>>> If From PP: First Mt (Auto Check: %s possiblity)\n", AFData(28, 47) < 8 ? "High":"Low");
+                MtMessage( AField );
+            }
         }
         break;
     default:
@@ -758,6 +889,10 @@ int main(int argc, char *argv[])
 
     /* parse options */
     parse_options(argc, (const char **)argv);
+    
+    /* params for dect */
+    g_dect.dev = g_arg.dev;
+    g_dect.dir = g_arg.dir;
     
     /* input from stdin */
     if(g_arg.ifile[0] == 0)
