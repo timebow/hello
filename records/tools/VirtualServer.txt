@@ -1,0 +1,183 @@
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
++ ISSUE: 虚拟服务器租用
++ DATE : 2018.05.01
++ STATE: ING (SUS/OK/DROP/ING)
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+1. 说明
+   通过虚拟服务器, 可以搭建自己的VPN, 可以搭建自己私人博客, 搭建私人存储服务器.
+
+2. 租购
+   vultr.com
+   => vultr的各地区的机房速度可能不一样. 测试下载速度: https://www.vultr.com/faq/#downloadspeedtests
+   => vultr有赠送$25，绑定信用卡后就可以直接用了.
+
+3. 
+
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
++ ISSUE: ssh连接巨慢
++ DATE : 2018.05.01
++ STATE: ING (SUS/OK/DROP/ING)
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+1. 参考
+   http://blog.path8.net/archives/4925.html
+   
+   核心：
+   服务器端sshd配置文件 /etc/ssh/sshd_config 看是否有如下的两条配置条目
+   
+   GSSAPIAuthentication no
+   UseDNS no
+   
+   如果前面带#，请把#删掉，或者新添加入这样两行。
+   然后重启sshd服务，或者重启服务器也可以。
+   
+   注意是文件 /etc/ssh/sshd_config 而不是/etc/ssh/ssh_config
+
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
++ ISSUE: 搭建Git服务器
++ DATE : 2018.05.01
++ STATE: ING (SUS/OK/DROP/ING)
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+1. 参考
+   https://www.liaoxuefeng.com/wiki/0013739516305929606dd18361248578c67b8067c8c017b000/00137583770360579bc4b458f044ce7afed3df579123eca000
+   https://blog.csdn.net/zhuxiaoping54532/article/details/53813437 5个步骤给自己搭建一个简单的GIT服务器 
+   
+   VPS服务器: 8.12.18.80, root, 1%CaKHrd4s,B4y{[
+
+   创建新用户: git
+   密码: mima123
+   
+   
+   git clone git@8.12.18.80:/home/git/repositories/test.git
+   
+   vi /home/git/.ssh/authorized_keys
+   
+   sudo chown git /home/git/.ssh/
+   sudo chmod 764 /home/git/.ssh
+   sudo chmod 764 /home/git/.ssh/*
+   
+   git clone git@8.12.18.80:/home/git/repositories/test.git
+   git clone git@108.61.200.192:/home/git/repositories/test.git
+   
+   
+   简单创建Git服务器方法:
+   https://blog.csdn.net/zhuxiaoping54532/article/details/53813437
+   
+   Windows每次clone都需要输入密码:
+   https://blog.csdn.net/u014621130/article/details/70676754
+
+2. 问题
+   1. 配置完成服务器, 但是每次都需要输入密码(需要配置相关文件权限):
+      1. 确认服务器配置: 参考https://blog.csdn.net/u014621130/article/details/70676754
+
+      2. 本地生成ssh-key, 将公钥拷贝到服务器的文件:
+         参考: https://blog.csdn.net/u012789986/article/details/76092083
+         1. SSH key生成方法: 右键选择Git-Bash, 输入 ssh-keygen -t rsa, 全部按默认生成即可(passphase为空,表示clone/pull/push等不需要输入密码)。
+         2. Windows下生成文件：C:\Users\timeb\.ssh, id_rsa(私钥), id_rsa.pub(公钥)
+         3. 将公钥id_rsa.pub的内容拷贝到Git服务器的认证文件(~/.ssh/authorized_keys)中, 每一个公钥占用一行.
+            这里的~是Git用户的, 因此详细路径是: /home/git/.ssh/authorized_keys
+
+      3. 服务器正确配置，仍然不行? 但是公司的电脑却可以！(参考: https://blog.csdn.net/yidragon88xx/article/details/38946041)
+       => 需要配置本地Git使用的认证程序:
+          右键 -> TortoiseGit -> Settings -> NetWork, 将SSH client改成: C:\Program Files\Git\usr\bin\ssh.exe
+          【注，原来是 C:\Program Files\TortoiseGit\bin\TortoisePlink.exe 】
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
++ ISSUE: 使用wordpress搭建博客系统
++ DATE : 2018.05.04
++ STATE: ING (SUS/OK/DROP/ING)
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+1. 参考
+   https://www.seoimo.com/wordpress-vps/
+   
+   关键步骤:
+   1. 域名购买:
+      https://www.namesilo.com/account_domains.php (参考: https://www.cnblogs.com/weed8/p/7207582.html)
+   2. 安装LNMP环境:
+      https://lnmp.org/install.html
+      
+      LNMP安装提示失败，但是访问IP地址能够正常显示网页。
+      vi /usr/local/apache/conf/httpd.conf
+      
+      修改使用域名访问：
+      vi /usr/local/apache/conf/httpd.conf，将其中的
+      将 DocumentRoot “/home/wwwroot/default” 及 Directory “/home/wwwroot/default”
+      两处中的 “/home/wwwroot/default” 修改为需要IP访问的域名，如 “/home/wwwroot/outmind.xyz”。
+      
+2. 参考
+   https://blog.csdn.net/chaiwenjun000/article/details/52168239
+   
+   1. sudo apt-get update
+   2. sudo apt-get install apache2
+   3. sudo apt-get install php5
+      sudo apt-get install libapache2-mod-php5
+      sudo apt-get install php5-gd
+      sudo apt-get install php5-mysql  //之前没有这一句导致php没有支持mysql
+      
+      错误提示:
+      root@DeepMind:~# sudo apt-get install php5
+      Reading package lists... Done
+      Building dependency tree       
+      Reading state information... Done
+      Package php5 is not available, but is referred to by another package.
+      This may mean that the package is missing, has been obsoleted, or
+      is only available from another source
+      
+      E: Package 'php5' has no installation candidate
+      => 参考 https://blog.csdn.net/tian33133/article/details/51509291
+      这是因为ubuntu16.04之后，php7成为默认php版本, 因此由此提示.
+      
+      => 安装php7， 提示错误 E: Unable to locate package php-7.0
+      参考：https://askubuntu.com/questions/715944/unable-to-locate-package-php7-0
+      sudo apt-add-repository ppa:ondrej/php
+      sudo apt-get update
+      sudo apt-get install php7.0
+      
+      => 
+      sudo apt-add-repository ppa:ondrej/php
+      sudo apt-get update
+      sudo apt-get install php7.0
+      sudo apt-get install libapache2-mod-php7.0
+      sudo apt-get install php7.0-gd
+      sudo apt-get install php7.0-mysql  //之前没有这一句导致php没有支持mysql
+      
+      => 配置域名
+      修改使用域名访问：
+      vi /usr/local/apache/conf/httpd.conf，将其中的
+      将 DocumentRoot “/home/wwwroot/default” 及 Directory “/home/wwwroot/default”
+      两处中的 “/home/wwwroot/default” 修改为需要IP访问的域名，如 “/home/wwwroot/outmind.xyz”。
+      -> 该路径不存在，apache2的配置路径参考 https://blog.csdn.net/u011101881/article/details/38367811
+         /etc/apache2/sites-enabled/000-default
+         【 注：它在apache2.conf中包含了上述文件: Include /etc/apache2/sites-enabled/ 】
+      
+      ? 直接登录IP地址，网页上会提示配置wordpress数据库，但是提示错误:
+        建立数据库连接时出错
+        
+        这意味着您在wp-config.php文件中指定的用户名和密码信息不正确，或我们未能在localhost联系到数据库服务器。这可能意味着您主机的数据库服务器未在运行。
+        
+        您确定用户名和密码正确吗？
+        您确定输入的主机名正确吗？
+        您确定数据库服务器在运行吗？
+        如果您不明白这些意味着什么，您应该联系您的主机提供商。如果您仍需要帮助，请访问WordPress支持论坛。
+        
+        => 本地用 mysql -u root -p 可以登录操作mysql, 说明mysql本身安装运行正常.
+           看到配置时选择的时localhost, 猜测是否这个服务没有开启?
+        => 查找发现mysql的localhost时通过127.0.0.1 IP 及 3306端口访问的.
+           参考: https://www.linuxidc.com/Linux/2015-04/116492.htm
+        => 查找用户权限:
+           select user,host,password from user; 
+           -> 提示错误: ERROR 1054 (42S22): Unknown column 'password' in 'field list'
+           -> 参考: https://blog.csdn.net/u010603691/article/details/50379282
+           -> 原来是新的mysql数据库下已经没有password这个字段了，password字段改成了authentication_string
+           -> 可以修改对应字段命名: update mysql.user set authentication_string=password('root') where user='root';
+           
+3. 附录
+   1. mysql的一些操作
+      1. mysql服务开启/关闭/重启:
+         /etc/init.d/mysql start/stop/restart
+      2. 进入操作mysql
+         1. 直接未验证进入(mysql配置支持无密码访问): shell中输入mysql
+         2. mysql -u root -p, 用root账号登录
+      3. mysql的数据操作(已经进入mysql命令行)
+         1. 查询当前用户的一些配置
+            use mysql;    =>使用mysql数据库(mysql本身配置)
+            select user,host,authentication_string from user;      =>从user数据表中找出user/host/authentication_string三个列显示.
+            

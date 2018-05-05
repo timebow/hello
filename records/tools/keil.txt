@@ -1,0 +1,38 @@
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
++ ISSUE: keil5安装与配置
++ DATE : 2018.04.30
++ STATE: ING (SUS/OK/DROP/ING)
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+1. 软件
+   F:\我的软件\Tools\编程常用\Keil
+   Baidu云盘
+
+2. 安装
+   1. 运行 \Keil\keil uVision5\keil MDK V5.18, 默认安装即可
+   2. 安装pack: keil 5支持的芯片类型可以通过pack导入. 没有的芯片类型可以在网上查找下载.
+      直接双击pack就能安装. (\Keil\keil uVision5\pack)
+
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
++ ISSUE: 工程建立与编译
++ DATE : 2018.04.30
++ STATE: ING (SUS/OK/DROP/ING)
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+0. 参考
+   1. https://blog.csdn.net/sx_mail/article/details/54094086
+1. 工程建立
+   1. 打开Keil, Project-> New uVision Project (若需要多个工程, 则选择Mulit Project)
+   2. 新建或导入源文件:
+      在新建工程列表的target1上右键, 选择 “Manage Project Items”, 在Group上添加文件夹, 
+      在Files上添加对应的文件. 若一个工程项用不同文件生成不同目标, 则可以再建一个target.
+
+2. 错误解决
+   1. 工程添加了头文件, 编译却提示不存在?
+      error:  #5: cannot open source input file "core_cm0plus.h": No such file or directory
+      => 解决: 需要添加头文件所在路径. 在Target1上右键, 选择“Options for Target”,
+         然后在C/C++选项卡的“Include Paths”添加相关头文件路径.
+   2. .\Objects\code.axf: Error: L6320W: Ignoring --entry command. Cannot find argument 'Reset_Handler'.
+      => keil5需要配置运行环境配置: 点击工具栏上的“Manage Run-Time Environmen”(菱形绿底图标).
+      选择需要的组件:
+      1. CMSIS -> Core/DSP 勾选上需要的类型.
+      2. Device -> Startup 选择需要的芯片类型startup.
+    
