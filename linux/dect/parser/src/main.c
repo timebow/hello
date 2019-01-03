@@ -549,7 +549,7 @@ void AFHead(unsigned char *AField)
 void QtMessage(unsigned char *AField)
 {
     showBinary( AField[1]&0xF0, 8, 4, 7, sAfTailQHead[AField[1]>>4]);
-    switch( AField[1]&0xF0 )
+    switch(AFData(8, 11))//( AField[1]&0xF0 )
     {
     case 0x00:
     case 0x01:
@@ -573,8 +573,14 @@ void QtMessage(unsigned char *AField)
         showBinary( AField[5]&0xC0, 8, 6, 7, "Spare");//bit 40-41
         showBinary( AField[5]&0x3F, 8, 0, 5, "PSCN: %d", AField[5]&0x3F);//bit 42-47
         break;
+    case 0x05:
+        AFShow(12, 14, "ARI list length: %d", (AFData(12, 14)+1)<<1);
+        AFShow(15, 15, "TARIs: %s", AFData(15, 15)?"yes":"no");
+        AFShow(16, 16, "Black: %s", AFData(16, 16)?"yes":"no");
+        AFShow(17, 47, "ARI or black-ARI: 0x%08X", AFData(17, 47));
+        break;
     default:
-        printf("un-parse Qt Message!\n");
+        printf("un-parse Q%d Message!\n", AFData(8, 11));
         break;
     }
     
@@ -712,6 +718,7 @@ void PtMessage(unsigned char *AField)
     case 1: //short page
         AFShow(12, 31, "20 least significa bits of RFPI: 0x%05lX", AFData(12, 31));
         AFShow(32, 35, "info type: %X (%s)", AFData(32, 35), sAfTailPtHxMacInfo[AFData(32, 35)]);
+        /* wireshark: cmac.afield.hdr.ta */
         switch(AFData(32, 35))
         {
         case 0x0: //longslot blindslots
@@ -743,6 +750,33 @@ void PtMessage(unsigned char *AField)
         case 0x3: //recommended other bearer
         case 0x4: //good RFP bearer
         case 0x5: //dummy or connectionless bearer position
+        case 0xA: //RFP status and modulation types
+            //RFP status
+            AFShow(39, 39, "RFP %s for speech", AFData(39, 39) ? "busy" : "clear");
+            AFShow(38, 38, "system %s", AFData(38, 38) ? "busy" : "clear");
+            AFShow(37, 37, "asynchronous FP %s", AFData(37, 37) ? "available" : "not available");
+            AFShow(36, 36, "RFP %s for data", AFData(36, 36) ? "busy" : "clear");
+            //A-field modulation scheme
+            AFShow(43, 43, "2-level modulation %s", AFData(43, 43) ? "not supported" : "supported");
+            AFShow(42, 42, "4-level modulation %s", AFData(42, 42) ? "not supported" : "supported");
+            AFShow(41, 41, "8-level modulation %s", AFData(41, 41) ? "not supported" : "supported");
+            if(AFData(40, 40))
+            {
+                AFShow(40, 40, "Reserved");
+            }
+            else
+            {
+                switch(AFData(40, 43))
+                {
+                case 0x1:
+                    AFShow(40, 40, "Escape");
+                    break;
+                case 0x0:
+                    AFShow(40, 40, "previous \"spare\" code: only 2-level modulation supported");
+                    break;
+                }
+            }
+            break;
         case 0xC: //C/L bearer position
             AFShow(36, 39, "SN(Slot Number): slot pair {%d,%d}", AFData(36, 39), AFData(36, 39)+12);
             AFShow(40, 41, "SP(Start Position): %s", sAfTailQHxSP[AFData(40, 41)]);
