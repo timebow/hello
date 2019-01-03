@@ -89,7 +89,7 @@ static int parse_options(int argc, const char *argv[])
             {"version",         no_argument,        0, 0},
 
             /*application define*/
-            {"gen",             required_argument,        0, 0},//6
+            {"gen",             required_argument,        0, 0},//2
             {"min",             required_argument,        0, 0},
             {"max",             required_argument,        0, 0},
             {"start",           required_argument,        0, 0},
@@ -119,34 +119,34 @@ static int parse_options(int argc, const char *argv[])
             case 1:
                 //display_version();
                 break;
-            case 6: //gen
-                strncpy(g_arg.ifile, optarg, 128);
+            case 2: //gen
+                strncpy(g_arg.gen, optarg, 128);
                 break;
-            case 7: //min
+            case 3: //min
                 g_arg.min = strtol ( optarg, ( char ** ) NULL, 0 );
                 break;
-            case 8: //max
+            case 4: //max
                 g_arg.max = strtol ( optarg, ( char ** ) NULL, 0 );
                 break;
-            case 9: //start
+            case 5: //start
                 g_arg.start = strtol ( optarg, ( char ** ) NULL, 0 );
                 break;
-            case 10: //size
+            case 6: //size
                 g_arg.size = strtol ( optarg, ( char ** ) NULL, 0 );
                 break;
-            case 11: //count
+            case 7: //count
                 g_arg.count = strtol ( optarg, ( char ** ) NULL, 0 );
                 break;
-            case 12: //step
+            case 8: //step
                 g_arg.step = strtol ( optarg, ( char ** ) NULL, 0 );
                 break;
-            case 13: //ifile
+            case 9: //ifile
                 strncpy(g_arg.ifile, optarg, 128);
                 break;
-            case 14: //ofile
+            case 10: //ofile
                 strncpy(g_arg.ofile, optarg, 128);
                 break;
-            case 15: //type
+            case 11: //type
                 strncpy(g_arg.type, optarg, 128);
                 break;
             }
